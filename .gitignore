@@ -176,3 +176,5 @@ cython_debug/
 # SQL
 sqllm_database.db
 sqllm_database.db-journal
+
+.env
