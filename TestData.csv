@@ -1,0 +1,7 @@
+sale_id,product,quantity,price,revenue,sale_date
+1,Apple,10,0.5,5.0,2025-03-01
+2,Banana,8,0.3,2.4,2025-03-02
+3,Orange,12,0.6,7.2,2025-03-03
+4,Apple,5,0.5,2.5,2025-03-04
+5,Banana,15,0.3,4.5,2025-03-05
+6,Grapes,20,0.8,16.0,2025-03-06
