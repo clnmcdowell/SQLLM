@@ -82,3 +82,17 @@ def insert_data(df, table_name, db_path):
     conn.commit()
     conn.close()
     print(f"Data inserted into `{table_name}`")
+
+if __name__ == "__main__":
+    # Parameters
+    csv_path = "TestData.csv"
+    table_name = "test_data"
+    db_path = "sqllm_database.db"
+
+    # Load the CSV
+    df = pd.read_csv(csv_path)
+    print(f"\nLoaded `{csv_path}`")
+
+    # Create table and insert data
+    create_table_from_schema(df, table_name, db_path)
+    insert_data(df, table_name, db_path)
