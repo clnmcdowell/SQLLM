@@ -39,3 +39,25 @@ def infer_column_types(df):
         sql_type = infer_sql_type(df[col])
         column_types[col] = sql_type
     return column_types
+
+def create_table_from_schema(df, table_name, db_path):
+    """
+    Creates a SQLite table from a DataFrame by inferring schema and executing CREATE TABLE.
+    """
+    column_types = infer_column_types(df)
+
+    # Generate SQL for each column
+    columns_sql = ", ".join([f'"{col}" {dtype}' for col, dtype in column_types.items()])
+    create_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({columns_sql});'
+
+    # Connect to database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Drop the table if it exists and create a new one
+    cursor.execute(f'DROP TABLE IF EXISTS "{table_name}";')
+    cursor.execute(create_sql)
+
+    conn.commit()
+    conn.close()
+    print(f"Table `{table_name}` created in `{db_path}`")
