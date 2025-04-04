@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# SQL
+sqllm_database.db
+sqllm_database.db-journal
