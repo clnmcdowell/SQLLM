@@ -115,6 +115,94 @@ def handle_schema_conflict(table_name, conn):
         else:
             print("Invalid choice. Please enter 'O' for overwrite, 'R' for rename, or 'S' for skip.")
 
+def run_cli_assistant(db_path):
+    """
+    Command-line assistant to interact with the SQLite database using simple commands.
+    Provides functionality to load CSV files, list tables, run queries, and exit.
+    """
+    print("Welcome to the SQLLM CLI Assistant.")
+    print("Type 'help' to see available commands.\n")
+
+    while True:
+        command = input(">> ").strip().lower()
+
+        if command == "help":
+            # Display available commands
+            print("\nAvailable commands:")
+            print("  load      - Load a CSV file into the database")
+            print("  tables    - List all tables in the database")
+            print("  query     - Run a SQL query")
+            print("  exit      - Exit the assistant\n")
+
+        elif command == "load":
+            # Load a CSV file into the database
+            csv_path = input("Enter CSV file path: ").strip()
+            table_name = input("Enter desired table name: ").strip()
+            try:
+                # Load CSV into DataFrame
+                df = pd.read_csv(csv_path)
+
+                # Create and optionally rename or skip table if conflict exists
+                final_name = create_table_from_schema(df, table_name, db_path)
+
+                # Insert data if table creation was not skipped
+                if final_name:
+                    insert_data(df, final_name, db_path)
+            except Exception as e:
+                print(f"Error loading CSV: {e}")
+
+        elif command == "tables":
+            # List all tables in the database
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                tables = cursor.fetchall()
+                conn.close()
+
+                if tables:
+                    print("\nAvailable tables:")
+                    for t in tables:
+                        print("  -", t[0])
+                else:
+                    print("No tables found in the database.")
+            except Exception as e:
+                print(f"Error listing tables: {e}")
+
+        elif command == "query":
+            # Run a raw SQL query entered by the user
+            sql = input("Enter SQL query: ").strip()
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute(sql)
+
+                # Fetch and print results, if any
+                rows = cursor.fetchall()
+                column_names = [desc[0] for desc in cursor.description] if cursor.description else []
+
+                if rows:
+                    print("\nResults:")
+                    print(" | ".join(column_names))
+                    for row in rows:
+                        print(" | ".join(str(cell) for cell in row))
+                else:
+                    print("Query executed successfully. No results returned.")
+
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Error running query: {e}")
+
+        elif command == "exit":
+            # Exit the assistant loop
+            print("Exiting assistant.")
+            break
+
+        else:
+            # Handle unrecognized commands
+            print("Unknown command. Type 'help' for options.")
+
 
 if __name__ == "__main__":
     # Parameters
