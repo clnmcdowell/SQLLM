@@ -1,28 +1,28 @@
 import pandas as pd
 import sqlite3
 
-# Load the CSV
-csv_path = "TestData.csv" 
-df = pd.read_csv(csv_path)
-print("\nCSV Loaded Successfully:")
-print(df.head())
+def infer_sql_type(series):
+    """
+    Infers the most appropriate SQLite column type for a Pandas Series.
+    """
+    # Check if the series is empty and default to TEXT
+    if series.dropna().empty:
+        return "TEXT"
 
-# Connect to SQLite database
-conn = sqlite3.connect("sqllm_database.db")
-print("\nConnected to SQLite Database")
+    # Find SQLite equivalents for the types in the series
+    types = set()
+    for val in series.dropna():
+        if isinstance(val, int):
+            types.add("INTEGER")
+        elif isinstance(val, float):
+            types.add("REAL")
+        else:
+            types.add("TEXT")
 
-# Insert DataFrame into SQLite
-table_name = "my_table"  # Change as needed
-df.to_sql(table_name, conn, if_exists="replace", index=False)
-print(f"\nData inserted into table: {table_name}")
-
-# Run a basic query
-cursor = conn.cursor()
-cursor.execute(f"SELECT * FROM {table_name} LIMIT 5;")
-rows = cursor.fetchall()
-
-print(f"\nSample rows from `{table_name}`:")
-for row in rows:
-    print(row)
-
-conn.close()
+    # Return the most appropriate type
+    if "TEXT" in types:
+        return "TEXT"
+    elif "REAL" in types:
+        return "REAL"
+    else:
+        return "INTEGER"
