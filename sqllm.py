@@ -43,24 +43,28 @@ def infer_column_types(df):
 def create_table_from_schema(df, table_name, db_path):
     """
     Creates a SQLite table from a DataFrame by inferring schema and executing CREATE TABLE.
+    Prompts the user if the table already exists allowing overwrite, rename, or skip.
     """
-    column_types = infer_column_types(df)
-
-    # Generate SQL for each column
-    columns_sql = ", ".join([f'"{col}" {dtype}' for col, dtype in column_types.items()])
-    create_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({columns_sql});'
-
-    # Connect to database
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
 
-    # Drop the table if it exists and create a new one
-    cursor.execute(f'DROP TABLE IF EXISTS "{table_name}";')
+    # Handle conflict if table already exists
+    final_table_name = handle_schema_conflict(table_name, conn)
+    if final_table_name is None:
+        conn.close()
+        return None  # Skipping creation and insertion
+
+    column_types = infer_column_types(df)
+    columns_sql = ", ".join([f'"{col}" {dtype}' for col, dtype in column_types.items()])
+    create_sql = f'CREATE TABLE IF NOT EXISTS "{final_table_name}" ({columns_sql});'
+
+    cursor = conn.cursor()
     cursor.execute(create_sql)
 
     conn.commit()
     conn.close()
-    print(f"Table `{table_name}` created in `{db_path}`")
+    print(f"Table '{final_table_name}' created in '{db_path}'")
+
+    return final_table_name
 
 def insert_data(df, table_name, db_path):
     """
