@@ -61,3 +61,24 @@ def create_table_from_schema(df, table_name, db_path):
     conn.commit()
     conn.close()
     print(f"Table `{table_name}` created in `{db_path}`")
+
+def insert_data(df, table_name, db_path):
+    """
+    Inserts data from a DataFrame into an existing SQLite table.
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Check if table exists 
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (table_name,))
+    if cursor.fetchone() is None:
+        print(f"Table `{table_name}` does not exist. Aborting insert.")
+        conn.close()
+        return
+
+    # Insert data
+    df.to_sql(table_name, conn, if_exists="append", index=False)
+
+    conn.commit()
+    conn.close()
+    print(f"Data inserted into `{table_name}`")
