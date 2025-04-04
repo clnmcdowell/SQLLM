@@ -83,6 +83,35 @@ def insert_data(df, table_name, db_path):
     conn.close()
     print(f"Data inserted into `{table_name}`")
 
+def handle_schema_conflict(table_name, conn):
+    """
+    Checks if a table exists and prompts the user to overwrite, rename, or skip.
+    Returns the final table name to use, or None if the user chooses to skip.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (table_name,))
+    exists = cursor.fetchone()
+
+    if not exists:
+        return table_name  # Table is safe to create
+
+    print(f"\nTable '{table_name}' already exists in the database.")
+    while True:
+        choice = input("Choose action - (O)verwrite / (R)ename / (S)kip: ").strip().upper()
+        if choice == "O":
+            cursor.execute(f'DROP TABLE IF EXISTS "{table_name}";')
+            print(f"Table '{table_name}' has been dropped.")
+            return table_name
+        elif choice == "R":
+            new_name = input("Enter a new table name: ").strip()
+            return new_name
+        elif choice == "S":
+            print("Skipping table creation and data insertion.")
+            return None
+        else:
+            print("Invalid choice. Please enter 'O' for overwrite, 'R' for rename, or 'S' for skip.")
+
+
 if __name__ == "__main__":
     # Parameters
     csv_path = "TestData.csv"
