@@ -26,3 +26,16 @@ def infer_sql_type(series):
         return "REAL"
     else:
         return "INTEGER"
+
+def infer_column_types(df):
+    """
+    Infers SQLite column types for all columns in the DataFrame.
+    Returns a dictionary mapping column names to SQLite types.
+    """
+    column_types = {}
+
+    # Iterate over each column in the DataFrame amd infer its type
+    for col in df.columns:
+        sql_type = infer_sql_type(df[col])
+        column_types[col] = sql_type
+    return column_types
