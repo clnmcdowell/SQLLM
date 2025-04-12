@@ -1,5 +1,15 @@
 import pandas as pd
 import sqlite3
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+import re
+
+# Load environment variables from .env
+load_dotenv()
+
+# Initialize OpenAI client with default API key from env
+client = OpenAI()
 
 def infer_sql_type(series):
     """
@@ -132,6 +142,7 @@ def run_cli_assistant(db_path):
             print("  load      - Load a CSV file into the database")
             print("  tables    - List all tables in the database")
             print("  query     - Run a SQL query")
+            print("  ask       - Ask a natural language question about a table")
             print("  exit      - Exit the assistant\n")
 
         elif command == "load":
@@ -194,6 +205,53 @@ def run_cli_assistant(db_path):
             except Exception as e:
                 print(f"Error running query: {e}")
 
+        elif command == "ask":
+            # Prompt user for the table they want to query
+            table_name = input("Enter table name to query: ").strip()
+
+            # Prompt user for a natural language question
+            nl_prompt = input("Enter your question: ").strip()
+
+            # Generate SQL using OpenAI and the schema of the selected table
+            sql = generate_sql_from_prompt(nl_prompt, table_name, db_path)
+
+            if sql:
+                # Display the generated SQL query
+                print("\nGenerated SQL:")
+                print(sql)
+
+                # Ask the user if they want to run the generated query
+                run_query = input("Would you like to execute this query? (y/n): ").strip().lower()
+                if run_query == "y":
+                    try:
+                        # Connect to the database
+                        conn = sqlite3.connect(db_path)
+                        cursor = conn.cursor()
+
+                        # Execute the generated SQL query
+                        cursor.execute(sql)
+
+                        # Fetch results (if any) and extract column headers
+                        rows = cursor.fetchall()
+                        column_names = [desc[0] for desc in cursor.description] if cursor.description else []
+
+                        # Display the query results
+                        if rows:
+                            print("\nResults:")
+                            print(" | ".join(column_names))
+                            for row in rows:
+                                print(" | ".join(str(cell) for cell in row))
+                        else:
+                            print("Query executed successfully. No results returned.")
+
+                        # Commit changes and close the connection
+                        conn.commit()
+                        conn.close()
+
+                    except Exception as e:
+                        # Handle errors that might occur when executing invalid SQL
+                        print(f"Error executing generated SQL: {e}")
+
         elif command == "exit":
             # Exit the assistant loop
             print("Exiting assistant.")
@@ -203,6 +261,75 @@ def run_cli_assistant(db_path):
             # Handle unrecognized commands
             print("Unknown command. Type 'help' for options.")
 
+def get_table_schema(table_name, db_path):
+    """
+    Returns a formatted string representing the schema of the given table.
+    Format: 'table_name (column1 TYPE, column2 TYPE, ...)'
+    """
+    # Connect to the SQLite database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Use SQLite PRAGMA to get column info for the table
+    cursor.execute(f"PRAGMA table_info('{table_name}');")
+    schema = cursor.fetchall()
+
+    # Close the database connection
+    conn.close()
+
+    # If no schema is found (e.g. the table doesn't exist), return None
+    if not schema:
+        return None
+
+    # Format the schema as a string for the LLM to read easily
+    # schema[i][1] = column name, schema[i][2] = column type
+    formatted = f"{table_name} ("
+    formatted += ", ".join([f"{col[1]} {col[2]}" for col in schema])
+    formatted += ")"
+
+    return formatted
+
+
+def generate_sql_from_prompt(prompt, table_name, db_path, model="gpt-3.5-turbo"):
+    schema = get_table_schema(table_name, db_path)
+    if not schema:
+        print(f"Table '{table_name}' not found or has no schema.")
+        return None
+
+    system_msg = (
+        "You are an AI assistant that translates natural language requests into SQL queries. "
+        "Use SQLite syntax. Use only the provided schema.\n"
+        f"Table Schema: {schema}"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+        )
+
+        # Extract the content from the LLM response
+        raw_sql = response.choices[0].message.content.strip()
+
+        # Remove Markdown-style code blocks if present
+        raw_sql = response.choices[0].message.content.strip()
+
+        # Remove any Markdown code fences (e.g., ```sql ... ```)
+        code_block_pattern = r"```(?:sql)?\s*(.*?)\s*```"
+        match = re.search(code_block_pattern, raw_sql, re.DOTALL)
+
+        if match:
+            raw_sql = match.group(1).strip()
+
+        return raw_sql
+
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return None
 
 if __name__ == "__main__":
     db_path = "sqllm_database.db"
